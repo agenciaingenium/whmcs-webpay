@@ -7,7 +7,7 @@ use WebpayDirecto\Config;
 function webpaydirecto_MetaData()
 {
     return [
-        'DisplayName' => 'Transbank Webpay Directo',
+        'DisplayName' => 'Clevers Webpay',
         'ApiVersion' => '1.0',
         'DisableLocalCredCardInput' => true,
         'TokenisedStorage' => false,
@@ -19,7 +19,7 @@ function webpaydirecto_config()
     return [
         'FriendlyName' => [
             'Type' => 'System',
-            'Value' => 'Transbank Webpay Directo',
+            'Value' => 'Clevers Webpay',
         ],
         'environment' => [
             'FriendlyName' => 'Ambiente',

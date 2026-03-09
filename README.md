@@ -1,4 +1,4 @@
-# WHMCS Transbank Webpay Directo
+# Clevers Webpay for WHMCS
 
 Gateway module para WHMCS que integra Webpay Directo (REST) con `apiKey` y `apiSecret`.
 
@@ -22,7 +22,7 @@ Nota: Lara Theme de WHMCS Marketplace es principalmente tema de administración;
 
 1. Copia el contenido de esta carpeta en la raíz de WHMCS.
 2. Ve a `Setup > Payments > Payment Gateways`.
-3. Activa `Transbank Webpay Directo`.
+3. Activa `Clevers Webpay`.
 4. Configura:
    - `Ambiente` (`TEST` o `PROD`)
    - `API Key` (`Tbk-Api-Key-Id`)

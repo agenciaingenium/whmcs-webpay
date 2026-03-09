@@ -1,10 +1,12 @@
 <?php
 
 use WebpayDirecto\Config;
-use WebpayDirecto\TransbankApi;
+use WebpayDirecto\PaymentProcessor;
 
 require_once __DIR__ . '/lib/Config.class.php';
 require_once __DIR__ . '/lib/TransbankApi.class.php';
+require_once __DIR__ . '/lib/TransactionStore.class.php';
+require_once __DIR__ . '/lib/PaymentProcessor.class.php';
 
 include '../../../includes/functions.php';
 include '../../../includes/gatewayfunctions.php';
@@ -26,51 +28,12 @@ $redirectToResult = function (int $invoiceId, string $status) {
 };
 
 try {
-    $gatewayParams = getGatewayVariables(Config::GATEWAY_NAME);
-    if (empty($gatewayParams['type'])) {
-        throw new Exception('Gateway no configurado en WHMCS.');
-    }
-
-    $environment = $gatewayParams['environment'] ?? 'TEST';
-    $baseUrl = Config::ENDPOINTS[$environment] ?? Config::ENDPOINTS['TEST'];
-    $api = new TransbankApi((string) $gatewayParams['apiKey'], (string) $gatewayParams['apiSecret'], $baseUrl);
-
     $tokenWs = trim((string) (filter_input(INPUT_POST, 'token_ws', FILTER_UNSAFE_RAW)
         ?: filter_input(INPUT_GET, 'token_ws', FILTER_UNSAFE_RAW)));
 
     if (!empty($tokenWs)) {
-        $commitResponse = $api->commitTransaction($tokenWs);
-        logModuleCall(Config::GATEWAY_NAME, 'commitTransaction', ['token_ws' => $tokenWs], $commitResponse, null, null);
-
-        $sessionId = (string) ($commitResponse['session_id'] ?? '');
-        $buyOrder = (string) ($commitResponse['buy_order'] ?? '');
-
-        $invoiceId = (int) preg_replace('/\D+/', '', $sessionId);
-        if ($invoiceId <= 0) {
-            $invoiceId = (int) preg_replace('/\D+/', '', $buyOrder);
-        }
-
-        if ($invoiceId <= 0) {
-            throw new Exception('No se pudo resolver invoiceId desde session_id/buy_order.');
-        }
-
-        checkCbInvoiceID($invoiceId, Config::GATEWAY_NAME);
-
-        $status = (string) ($commitResponse['status'] ?? '');
-        $responseCode = (int) ($commitResponse['response_code'] ?? -1);
-
-        if ($status === Config::STATUS_AUTHORIZED && $responseCode === 0) {
-            $amount = (float) ($commitResponse['amount'] ?? 0);
-            $transactionId = $tokenWs;
-
-            checkCbTransID($transactionId);
-            addInvoicePayment($invoiceId, $transactionId, $amount, 0, Config::GATEWAY_NAME);
-            logTransaction(Config::GATEWAY_NAME, $commitResponse, 'Pago autorizado y registrado');
-            $redirectToResult($invoiceId, 'authorized');
-        } else {
-            logTransaction(Config::GATEWAY_NAME, $commitResponse, 'Transacción rechazada o abortada');
-            $redirectToResult($invoiceId, 'failed');
-        }
+        $result = PaymentProcessor::processCommitToken($tokenWs, 'return');
+        $redirectToResult((int) $result['invoiceId'], $result['authorized'] ? 'authorized' : 'failed');
     }
 
     $tbkSession = trim((string) (filter_input(INPUT_POST, 'TBK_ID_SESION', FILTER_UNSAFE_RAW)

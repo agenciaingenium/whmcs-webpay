@@ -41,6 +41,13 @@ function webpaydirecto_config()
             'Default' => '',
             'Description' => 'Tbk-Api-Key-Secret entregado por Transbank.',
         ],
+        'callbackSecret' => [
+            'FriendlyName' => 'Callback Secret',
+            'Type' => 'text',
+            'Size' => 80,
+            'Default' => '',
+            'Description' => 'Clave HMAC para endpoint server-to-server (opcional, recomendado).',
+        ],
     ];
 }
 

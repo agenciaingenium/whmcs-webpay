@@ -7,6 +7,7 @@ use WebpayDirecto\TransbankApi;
 require_once __DIR__ . '/Config.class.php';
 require_once __DIR__ . '/TransactionStore.class.php';
 require_once __DIR__ . '/TransbankApi.class.php';
+require_once __DIR__ . '/AmountNormalizer.class.php';
 
 include '../../../../includes/functions.php';
 include '../../../../includes/gatewayfunctions.php';
@@ -16,34 +17,6 @@ if (file_exists('../../../../dbconnect.php')) {
     include '../../../../dbconnect.php';
 } elseif (file_exists('../../../../init.php')) {
     include '../../../../init.php';
-}
-
-if (!function_exists('webpaydirectoParseAmount')) {
-    function webpaydirectoParseAmount(string $raw): float
-    {
-        $value = preg_replace('/[^\d,.\-]/', '', trim($raw));
-        if ($value === '' || $value === null) {
-            return 0.0;
-        }
-
-        $hasComma = strpos($value, ',') !== false;
-        $hasDot = strpos($value, '.') !== false;
-
-        if ($hasComma && $hasDot) {
-            $lastComma = strrpos($value, ',');
-            $lastDot = strrpos($value, '.');
-            if ($lastComma > $lastDot) {
-                $value = str_replace('.', '', $value);
-                $value = str_replace(',', '.', $value);
-            } else {
-                $value = str_replace(',', '', $value);
-            }
-        } elseif ($hasComma) {
-            $value = str_replace(',', '.', $value);
-        }
-
-        return is_numeric($value) ? (float) $value : 0.0;
-    }
 }
 
 try {
@@ -62,8 +35,8 @@ try {
         throw new Exception('Datos inválidos para crear transacción.');
     }
 
-    $amountFloat = webpaydirectoParseAmount($rawAmount);
-    $amount = ($currency === 'CLP') ? (int) round($amountFloat) : round($amountFloat, 2);
+    $amountFloat = \WebpayDirecto\AmountNormalizer::parse($rawAmount);
+    $amount = \WebpayDirecto\AmountNormalizer::normalize($rawAmount, $currency);
 
     if ($amount <= 0) {
         throw new Exception('Monto inválido para Transbank.');

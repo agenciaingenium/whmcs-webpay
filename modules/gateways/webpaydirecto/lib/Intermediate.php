@@ -80,6 +80,14 @@ try {
         (string) $currency
     );
 
+    $correlationId = TransactionStore::getOrCreateCorrelationId((string) $response['token']);
+    logActivity(Config::GATEWAY_NAME . ': create_result ' . json_encode([
+        'correlation_id' => $correlationId,
+        'invoiceId' => $invoiceId,
+        'token_ws' => (string) $response['token'],
+        'environment' => $environment,
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
     $url = htmlspecialchars((string) $response['url'], ENT_QUOTES, 'UTF-8');
     $token = htmlspecialchars((string) $response['token'], ENT_QUOTES, 'UTF-8');
 

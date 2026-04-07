@@ -52,7 +52,15 @@ class TransbankApi
 
         if ($responseBody === false) {
             $error = curl_error($ch);
+            $errno = curl_errno($ch);
             curl_close($ch);
+            $this->logApiError('cURL error', [
+                'method' => strtoupper($method),
+                'url' => $url,
+                'payload' => $payload,
+                'curl_errno' => $errno,
+                'curl_error' => $error,
+            ]);
             throw new \Exception('Error cURL Transbank: ' . $error);
         }
 
@@ -61,14 +69,34 @@ class TransbankApi
 
         $decoded = json_decode($responseBody, true);
         if (!is_array($decoded)) {
+            $this->logApiError('Invalid API response payload', [
+                'method' => strtoupper($method),
+                'url' => $url,
+                'http_code' => $httpCode,
+                'raw_response' => $responseBody,
+            ]);
             throw new \Exception('Respuesta inválida de Transbank: ' . $responseBody, $httpCode);
         }
 
         if ($httpCode < 200 || $httpCode >= 300) {
             $message = $decoded['error_message'] ?? $decoded['message'] ?? 'Error desconocido';
+            $this->logApiError('Transbank API HTTP error', [
+                'method' => strtoupper($method),
+                'url' => $url,
+                'http_code' => $httpCode,
+                'payload' => $payload,
+                'response' => $decoded,
+            ]);
             throw new \Exception('Transbank devolvió HTTP ' . $httpCode . ': ' . $message, $httpCode);
         }
 
         return $decoded;
+    }
+
+    private function logApiError(string $message, array $context): void
+    {
+        if (function_exists('logTransaction')) {
+            logTransaction(Config::GATEWAY_NAME, $context, $message);
+        }
     }
 }

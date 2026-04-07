@@ -52,6 +52,11 @@ try {
     ));
 
     if (!PaymentProcessor::verifyCallbackSignature($callbackSecret, $tokenWs, $invoiceId ?: null, $providedSignature)) {
+        logTransaction(Config::GATEWAY_NAME, [
+            'token_ws' => $tokenWs,
+            'invoice_id' => $invoiceId ?: null,
+            'provided_signature' => $providedSignature,
+        ], 'Callback signature validation failed');
         http_response_code(401);
         echo json_encode(['ok' => false, 'message' => 'Firma inválida']);
         exit;

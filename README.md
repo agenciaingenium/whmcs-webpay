@@ -41,17 +41,13 @@ Parámetros esperados:
 
 - `token_ws` (obligatorio)
 - `invoiceid` (opcional, recomendado para firma)
-- `timestamp` (opcional, unix epoch en segundos; recomendado para anti-replay)
 - Header `X-Clevers-Signature` o parámetro `signature` (obligatorio)
-  - También puede enviarse `X-Clevers-Timestamp` en header
 
 Firma:
 
-- Base legacy: `token_ws|invoiceid` (si no hay `invoiceid`, usa solo `token_ws`)
-- Base con timestamp: `token_ws|invoiceid|timestamp` (si no hay `invoiceid`, usa `token_ws|timestamp`)
+- Base: `token_ws|invoiceid` (si no hay `invoiceid`, usa solo `token_ws`)
 - Algoritmo: `HMAC-SHA256`
 - Clave: `Callback Secret` del gateway
-- Anti-replay (si se envía timestamp): ventana de 300 segundos
 
 Ejemplo:
 
@@ -59,15 +55,12 @@ Ejemplo:
 TOKEN_WS="abc123"
 INVOICE_ID="10"
 SECRET="tu-callback-secret"
-TIMESTAMP=$(date +%s)
-SIG=$(printf "%s" "${TOKEN_WS}|${INVOICE_ID}|${TIMESTAMP}" | openssl dgst -sha256 -hmac "$SECRET" | awk '{print $2}')
+SIG=$(printf "%s" "${TOKEN_WS}|${INVOICE_ID}" | openssl dgst -sha256 -hmac "$SECRET" | awk '{print $2}')
 
 curl -X POST "https://tu-whmcs/modules/gateways/callback/webpaydirecto.php" \
   -H "X-Clevers-Signature: ${SIG}" \
-  -H "X-Clevers-Timestamp: ${TIMESTAMP}" \
   -d "token_ws=${TOKEN_WS}" \
-  -d "invoiceid=${INVOICE_ID}" \
-  -d "timestamp=${TIMESTAMP}"
+  -d "invoiceid=${INVOICE_ID}"
 ```
 
 ## Archivos principales

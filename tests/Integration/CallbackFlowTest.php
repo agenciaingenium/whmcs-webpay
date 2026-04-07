@@ -11,6 +11,8 @@ require_once __DIR__ . '/../../modules/gateways/webpaydirecto/lib/Config.class.p
 require_once __DIR__ . '/../../modules/gateways/webpaydirecto/lib/TransactionStore.class.php';
 
 $GLOBALS['test_invoice_payments'] = [];
+$GLOBALS['test_commit_response'] = [];
+$GLOBALS['test_commit_exception'] = null;
 
 function getGatewayVariables(string $gateway): array
 {
@@ -50,6 +52,14 @@ class TransbankApi
 
     public function commitTransaction(string $token): array
     {
+        if ($GLOBALS['test_commit_exception'] instanceof \Throwable) {
+            throw $GLOBALS['test_commit_exception'];
+        }
+
+        if (!empty($GLOBALS['test_commit_response'])) {
+            return $GLOBALS['test_commit_response'];
+        }
+
         return [
             'status' => Config::STATUS_AUTHORIZED,
             'response_code' => 0,
@@ -75,6 +85,8 @@ final class CallbackFlowTest extends \PHPUnit\Framework\TestCase
     {
         FakeCapsule::reset();
         $GLOBALS['test_invoice_payments'] = [];
+        $GLOBALS['test_commit_response'] = [];
+        $GLOBALS['test_commit_exception'] = null;
     }
 
     public function testDoubleCallbackWithSameTokenIsIdempotent(): void
@@ -86,6 +98,44 @@ final class CallbackFlowTest extends \PHPUnit\Framework\TestCase
         self::assertTrue($first['paymentRecorded']);
         self::assertTrue($second['paymentRecorded']);
         self::assertCount(1, $GLOBALS['test_invoice_payments']);
+    }
+
+    public function testCommitRejectedDoesNotRecordPayment(): void
+    {
+        $GLOBALS['test_commit_response'] = [
+            'status' => 'FAILED',
+            'response_code' => -1,
+            'amount' => 1000,
+            'currency' => 'CLP',
+            'authorization_code' => '',
+            'session_id' => 'INV-21',
+            'buy_order' => 'INV21-ORDER',
+        ];
+
+        $result = WebpayDirecto\PaymentProcessor::processCommitToken('token-rejected', 'callback');
+
+        self::assertFalse($result['authorized']);
+        self::assertFalse($result['paymentRecorded']);
+        self::assertCount(0, $GLOBALS['test_invoice_payments']);
+        self::assertFalse(WebpayDirecto\TransactionStore::isPaymentRecorded('token-rejected'));
+    }
+
+    public function testCommitTimeoutBubblesExceptionAndKeepsAttemptCount(): void
+    {
+        $GLOBALS['test_commit_exception'] = new \Exception('timeout api');
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('timeout api');
+
+        try {
+            WebpayDirecto\PaymentProcessor::processCommitToken('token-timeout', 'callback');
+        } finally {
+            $rows = FakeCapsule::$tables[WebpayDirecto\TransactionStore::TABLE] ?? [];
+            self::assertCount(1, $rows);
+            self::assertSame(1, $rows[0]['commit_attempts']);
+            self::assertSame('RECEIVED', $rows[0]['status']);
+            self::assertCount(0, $GLOBALS['test_invoice_payments']);
+        }
     }
 }
 }

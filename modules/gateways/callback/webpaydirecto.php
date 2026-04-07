@@ -57,18 +57,29 @@ try {
         ?? filter_input(INPUT_GET, 'timestamp', FILTER_UNSAFE_RAW)
         ?? ''
     ));
-    $windowSeconds = (int) ($gatewayParams['callbackWindowSeconds'] ?? 300);
+    $isValidSignature = false;
+    if ($providedTimestamp !== '') {
+        $windowSeconds = (int) ($gatewayParams['callbackWindowSeconds'] ?? 300);
+        $isValidSignature = PaymentProcessor::verifyTimedCallbackSignature(
+            $callbackSecret,
+            $tokenWs,
+            $invoiceId ?: null,
+            $providedTimestamp,
+            $providedSignature,
+            $windowSeconds
+        );
+    } else {
+        $isValidSignature = PaymentProcessor::verifyCallbackSignature(
+            $callbackSecret,
+            $tokenWs,
+            $invoiceId ?: null,
+            $providedSignature
+        );
+    }
 
-    if (!PaymentProcessor::verifyTimedCallbackSignature(
-        $callbackSecret,
-        $tokenWs,
-        $invoiceId ?: null,
-        $providedTimestamp,
-        $providedSignature,
-        $windowSeconds
-    )) {
+    if (!$isValidSignature) {
         http_response_code(401);
-        echo json_encode(['ok' => false, 'message' => 'Firma inválida o fuera de ventana']);
+        echo json_encode(['ok' => false, 'message' => 'Firma inválida']);
         exit;
     }
 

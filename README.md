@@ -41,16 +41,17 @@ Parámetros esperados:
 
 - `token_ws` (obligatorio)
 - `invoiceid` (opcional, recomendado para firma)
-- `timestamp` (obligatorio, unix epoch en segundos)
+- `timestamp` (opcional, unix epoch en segundos; recomendado para anti-replay)
 - Header `X-Clevers-Signature` o parámetro `signature` (obligatorio)
   - También puede enviarse `X-Clevers-Timestamp` en header
 
 Firma:
 
-- Base: `token_ws|invoiceid|timestamp` (si no hay `invoiceid`, usa `token_ws|timestamp`)
+- Base legacy: `token_ws|invoiceid` (si no hay `invoiceid`, usa solo `token_ws`)
+- Base con timestamp: `token_ws|invoiceid|timestamp` (si no hay `invoiceid`, usa `token_ws|timestamp`)
 - Algoritmo: `HMAC-SHA256`
 - Clave: `Callback Secret` del gateway
-- Anti-replay: se valida ventana configurable (`Callback Window (s)`, default 300)
+- Anti-replay (si se envía timestamp): ventana de 300 segundos
 
 Ejemplo:
 

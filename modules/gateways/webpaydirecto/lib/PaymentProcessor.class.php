@@ -8,6 +8,7 @@ class PaymentProcessor
 {
     public static function processCommitToken(string $tokenWs, string $source = 'return'): array
     {
+        $correlationId = TransactionStore::getOrCreateCorrelationId($tokenWs);
         TransactionStore::markCommitAttempt($tokenWs, $source);
 
         $gatewayParams = getGatewayVariables(Config::GATEWAY_NAME);
@@ -19,8 +20,20 @@ class PaymentProcessor
         $baseUrl = Config::ENDPOINTS[$environment] ?? Config::ENDPOINTS['TEST'];
         $api = new TransbankApi((string) $gatewayParams['apiKey'], (string) $gatewayParams['apiSecret'], $baseUrl);
 
+        self::logTrace('commit_start', [
+            'correlation_id' => $correlationId,
+            'token_ws' => $tokenWs,
+            'source' => $source,
+            'environment' => $environment,
+        ]);
+
         $commitResponse = $api->commitTransaction($tokenWs);
-        logModuleCall(Config::GATEWAY_NAME, 'commitTransaction', ['token_ws' => $tokenWs, 'source' => $source], $commitResponse, null, null);
+        logModuleCall(Config::GATEWAY_NAME, 'commitTransaction', [
+            'token_ws' => $tokenWs,
+            'source' => $source,
+            'correlation_id' => $correlationId,
+            'environment' => $environment,
+        ], $commitResponse, null, null);
 
         $sessionId = (string) ($commitResponse['session_id'] ?? '');
         $buyOrder = (string) ($commitResponse['buy_order'] ?? '');
@@ -53,8 +66,21 @@ class PaymentProcessor
             logTransaction(Config::GATEWAY_NAME, $commitResponse, 'Transacción rechazada o abortada');
         }
 
+        self::logTrace('commit_result', [
+            'correlation_id' => $correlationId,
+            'invoiceId' => $invoiceId,
+            'token_ws' => $tokenWs,
+            'commit_status' => $status,
+            'response_code' => $responseCode,
+            'authorized' => $authorized,
+            'payment_recorded' => $paymentRecorded,
+            'environment' => $environment,
+            'source' => $source,
+        ]);
+
         TransactionStore::saveCommitResult($tokenWs, [
             'invoice_id' => $invoiceId,
+            'correlation_id' => $correlationId,
             'buy_order' => $buyOrder,
             'amount' => (float) ($commitResponse['amount'] ?? 0),
             'currency' => (string) ($commitResponse['currency'] ?? ''),
@@ -71,6 +97,7 @@ class PaymentProcessor
             'authorized' => $authorized,
             'paymentRecorded' => $paymentRecorded,
             'response' => $commitResponse,
+            'correlationId' => $correlationId,
         ];
     }
 
@@ -104,5 +131,10 @@ class PaymentProcessor
         return Capsule::table('tblaccounts')
             ->where('transid', $transactionId)
             ->exists();
+    }
+
+    private static function logTrace(string $event, array $context): void
+    {
+        logActivity(Config::GATEWAY_NAME . ': ' . $event . ' ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 }

@@ -8,28 +8,65 @@ class TransactionStore
 {
     public const TABLE = 'mod_clevers_webpay_tx';
 
-    public static function ensureTable(): void
+    public static function getOrCreateCorrelationId(string $token): string
     {
-        if (Capsule::schema()->hasTable(self::TABLE)) {
-            return;
+        self::ensureTable();
+
+        $existing = Capsule::table(self::TABLE)->where('token_ws', $token)->first();
+        if ($existing && !empty($existing->correlation_id)) {
+            return (string) $existing->correlation_id;
         }
 
-        Capsule::schema()->create(self::TABLE, function ($table) {
-            $table->increments('id');
-            $table->integer('invoice_id')->nullable()->index();
-            $table->string('buy_order', 64)->nullable()->index();
-            $table->string('token_ws', 128)->unique();
-            $table->decimal('amount', 15, 2)->nullable();
-            $table->string('currency', 8)->nullable();
-            $table->string('status', 40)->nullable();
-            $table->integer('response_code')->nullable();
-            $table->string('authorization_code', 40)->nullable();
-            $table->string('source', 24)->nullable();
-            $table->unsignedInteger('commit_attempts')->default(0);
-            $table->boolean('payment_recorded')->default(false);
-            $table->text('raw_response')->nullable();
-            $table->timestamps();
-        });
+        $correlationId = self::buildCorrelationId($token);
+        $now = date('Y-m-d H:i:s');
+
+        if ($existing) {
+            Capsule::table(self::TABLE)->where('id', $existing->id)->update([
+                'correlation_id' => $correlationId,
+                'updated_at' => $now,
+            ]);
+            return $correlationId;
+        }
+
+        Capsule::table(self::TABLE)->insert([
+            'token_ws' => $token,
+            'correlation_id' => $correlationId,
+            'status' => 'RECEIVED',
+            'commit_attempts' => 0,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return $correlationId;
+    }
+
+    public static function ensureTable(): void
+    {
+        if (!Capsule::schema()->hasTable(self::TABLE)) {
+            Capsule::schema()->create(self::TABLE, function ($table) {
+                $table->increments('id');
+                $table->integer('invoice_id')->nullable()->index();
+                $table->string('buy_order', 64)->nullable()->index();
+                $table->string('token_ws', 128)->unique();
+                $table->string('correlation_id', 64)->nullable()->index();
+                $table->decimal('amount', 15, 2)->nullable();
+                $table->string('currency', 8)->nullable();
+                $table->string('status', 40)->nullable();
+                $table->integer('response_code')->nullable();
+                $table->string('authorization_code', 40)->nullable();
+                $table->string('source', 24)->nullable();
+                $table->unsignedInteger('commit_attempts')->default(0);
+                $table->boolean('payment_recorded')->default(false);
+                $table->text('raw_response')->nullable();
+                $table->timestamps();
+            });
+        }
+
+        if (method_exists(Capsule::schema(), 'hasColumn') && !Capsule::schema()->hasColumn(self::TABLE, 'correlation_id')) {
+            Capsule::schema()->table(self::TABLE, function ($table) {
+                $table->string('correlation_id', 64)->nullable()->index();
+            });
+        }
     }
 
     public static function recordCreate(int $invoiceId, string $buyOrder, string $token, float $amount, string $currency): void
@@ -41,6 +78,7 @@ class TransactionStore
 
         $data = [
             'invoice_id' => $invoiceId,
+            'correlation_id' => self::buildCorrelationId($token),
             'buy_order' => $buyOrder,
             'amount' => $amount,
             'currency' => strtoupper($currency),
@@ -79,6 +117,7 @@ class TransactionStore
 
         Capsule::table(self::TABLE)->insert([
             'token_ws' => $token,
+            'correlation_id' => self::buildCorrelationId($token),
             'source' => $source,
             'commit_attempts' => 1,
             'status' => 'RECEIVED',
@@ -96,6 +135,7 @@ class TransactionStore
 
         $data = [
             'invoice_id' => $payload['invoice_id'] ?? null,
+            'correlation_id' => $payload['correlation_id'] ?? null,
             'buy_order' => $payload['buy_order'] ?? null,
             'amount' => $payload['amount'] ?? null,
             'currency' => $payload['currency'] ?? null,
@@ -123,5 +163,10 @@ class TransactionStore
         self::ensureTable();
         $row = Capsule::table(self::TABLE)->where('token_ws', $token)->first();
         return $row ? (bool) $row->payment_recorded : false;
+    }
+
+    private static function buildCorrelationId(string $seed): string
+    {
+        return 'wpd-' . substr(hash('sha256', $seed), 0, 20);
     }
 }

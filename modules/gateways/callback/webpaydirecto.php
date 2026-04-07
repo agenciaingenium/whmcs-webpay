@@ -65,6 +65,7 @@ try {
         'invoiceId' => $result['invoiceId'],
         'authorized' => $result['authorized'],
         'paymentRecorded' => $result['paymentRecorded'],
+        'correlationId' => $result['correlationId'] ?? null,
     ]);
     exit;
 } catch (Throwable $e) {

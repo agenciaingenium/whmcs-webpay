@@ -25,6 +25,16 @@ final class TransactionStoreTest extends TestCase
         self::assertSame(2, $rows[0]['commit_attempts']);
     }
 
+
+    public function testCorrelationIdIsStableForSameToken(): void
+    {
+        $first = WebpayDirecto\TransactionStore::getOrCreateCorrelationId('token-stable');
+        $second = WebpayDirecto\TransactionStore::getOrCreateCorrelationId('token-stable');
+
+        self::assertSame($first, $second);
+        self::assertStringStartsWith('wpd-', $first);
+    }
+
     public function testSaveCommitResultMarksPaymentRecorded(): void
     {
         WebpayDirecto\TransactionStore::saveCommitResult('token-2', [

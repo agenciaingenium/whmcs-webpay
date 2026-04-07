@@ -41,6 +41,10 @@ function addInvoicePayment(int $invoiceId, string $transactionId, float $amount,
 function logTransaction(string $gateway, array $payload, string $message): void
 {
 }
+
+function logActivity(string $message): void
+{
+}
 }
 
 namespace WebpayDirecto {

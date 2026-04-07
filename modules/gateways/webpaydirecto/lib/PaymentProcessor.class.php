@@ -89,6 +89,40 @@ class PaymentProcessor
         return hash_equals($expected, trim($provided));
     }
 
+    public static function verifyTimedCallbackSignature(
+        string $secret,
+        string $tokenWs,
+        ?int $invoiceId,
+        string $timestamp,
+        string $provided,
+        int $windowSeconds = 300,
+        ?int $now = null
+    ): bool {
+        if ($secret === '' || trim($provided) === '' || !preg_match('/^\d+$/', $timestamp)) {
+            return false;
+        }
+
+        $timestampInt = (int) $timestamp;
+        if ($timestampInt <= 0) {
+            return false;
+        }
+
+        $windowSeconds = max(1, $windowSeconds);
+        $now = $now ?? time();
+        if (abs($now - $timestampInt) > $windowSeconds) {
+            return false;
+        }
+
+        $base = $tokenWs;
+        if (!empty($invoiceId)) {
+            $base .= '|' . $invoiceId;
+        }
+        $base .= '|' . $timestampInt;
+
+        $expected = hash_hmac('sha256', $base, $secret);
+        return hash_equals($expected, trim($provided));
+    }
+
     private static function resolveInvoiceId(string $sessionId, string $buyOrder): int
     {
         $invoiceId = (int) preg_replace('/\D+/', '', $sessionId);

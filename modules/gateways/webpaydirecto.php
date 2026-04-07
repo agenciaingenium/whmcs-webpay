@@ -48,6 +48,13 @@ function webpaydirecto_config()
             'Default' => '',
             'Description' => 'Clave HMAC para endpoint server-to-server (opcional, recomendado).',
         ],
+        'callbackWindowSeconds' => [
+            'FriendlyName' => 'Callback Window (s)',
+            'Type' => 'text',
+            'Size' => 8,
+            'Default' => '300',
+            'Description' => 'Ventana máxima en segundos para validar timestamp anti-replay (default: 300).',
+        ],
     ];
 }
 

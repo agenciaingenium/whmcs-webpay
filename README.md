@@ -41,13 +41,16 @@ Parámetros esperados:
 
 - `token_ws` (obligatorio)
 - `invoiceid` (opcional, recomendado para firma)
+- `timestamp` (obligatorio, unix epoch en segundos)
 - Header `X-Clevers-Signature` o parámetro `signature` (obligatorio)
+  - También puede enviarse `X-Clevers-Timestamp` en header
 
 Firma:
 
-- Base: `token_ws|invoiceid` (si no hay `invoiceid`, usa solo `token_ws`)
+- Base: `token_ws|invoiceid|timestamp` (si no hay `invoiceid`, usa `token_ws|timestamp`)
 - Algoritmo: `HMAC-SHA256`
 - Clave: `Callback Secret` del gateway
+- Anti-replay: se valida ventana configurable (`Callback Window (s)`, default 300)
 
 Ejemplo:
 
@@ -55,12 +58,15 @@ Ejemplo:
 TOKEN_WS="abc123"
 INVOICE_ID="10"
 SECRET="tu-callback-secret"
-SIG=$(printf "%s" "${TOKEN_WS}|${INVOICE_ID}" | openssl dgst -sha256 -hmac "$SECRET" | awk '{print $2}')
+TIMESTAMP=$(date +%s)
+SIG=$(printf "%s" "${TOKEN_WS}|${INVOICE_ID}|${TIMESTAMP}" | openssl dgst -sha256 -hmac "$SECRET" | awk '{print $2}')
 
 curl -X POST "https://tu-whmcs/modules/gateways/callback/webpaydirecto.php" \
   -H "X-Clevers-Signature: ${SIG}" \
+  -H "X-Clevers-Timestamp: ${TIMESTAMP}" \
   -d "token_ws=${TOKEN_WS}" \
-  -d "invoiceid=${INVOICE_ID}"
+  -d "invoiceid=${INVOICE_ID}" \
+  -d "timestamp=${TIMESTAMP}"
 ```
 
 ## Archivos principales

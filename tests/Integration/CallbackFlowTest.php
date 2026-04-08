@@ -13,6 +13,7 @@ require_once __DIR__ . '/../../modules/gateways/webpaydirecto/lib/TransactionSto
 $GLOBALS['test_invoice_payments'] = [];
 $GLOBALS['test_commit_response'] = [];
 $GLOBALS['test_commit_exception'] = null;
+$GLOBALS['test_add_invoice_payment_hook'] = null;
 
 function getGatewayVariables(string $gateway): array
 {
@@ -34,6 +35,12 @@ function checkCbInvoiceID(int $invoiceId, string $gateway): void
 
 function addInvoicePayment(int $invoiceId, string $transactionId, float $amount, float $fees, string $gateway): void
 {
+    if (is_callable($GLOBALS['test_add_invoice_payment_hook'])) {
+        $hook = $GLOBALS['test_add_invoice_payment_hook'];
+        $GLOBALS['test_add_invoice_payment_hook'] = null;
+        $hook();
+    }
+
     $GLOBALS['test_invoice_payments'][] = compact('invoiceId', 'transactionId', 'amount', 'fees', 'gateway');
     FakeCapsule::$tables['tblaccounts'][] = ['transid' => $transactionId];
 }
@@ -91,6 +98,7 @@ final class CallbackFlowTest extends \PHPUnit\Framework\TestCase
         $GLOBALS['test_invoice_payments'] = [];
         $GLOBALS['test_commit_response'] = [];
         $GLOBALS['test_commit_exception'] = null;
+        $GLOBALS['test_add_invoice_payment_hook'] = null;
     }
 
     public function testDoubleCallbackWithSameTokenIsIdempotent(): void
@@ -140,6 +148,20 @@ final class CallbackFlowTest extends \PHPUnit\Framework\TestCase
             self::assertSame('RECEIVED', $rows[0]['status']);
             self::assertCount(0, $GLOBALS['test_invoice_payments']);
         }
+    }
+
+    public function testConcurrentDuplicateCallbacksOnlyRecordOnePayment(): void
+    {
+        $GLOBALS['test_add_invoice_payment_hook'] = static function (): void {
+            WebpayDirecto\PaymentProcessor::processCommitToken('token-race', 'callback');
+        };
+
+        $first = WebpayDirecto\PaymentProcessor::processCommitToken('token-race', 'callback');
+
+        self::assertTrue($first['authorized']);
+        self::assertTrue($first['paymentRecorded']);
+        self::assertCount(1, $GLOBALS['test_invoice_payments']);
+        self::assertTrue(WebpayDirecto\TransactionStore::isPaymentRecorded('token-race'));
     }
 }
 }

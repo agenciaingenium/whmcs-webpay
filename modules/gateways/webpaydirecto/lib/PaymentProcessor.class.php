@@ -57,9 +57,18 @@ class PaymentProcessor
             $alreadyRecordedInStore = TransactionStore::isPaymentRecorded($tokenWs);
 
             if (!$transactionAlreadyUsed && !$alreadyRecordedInStore) {
-                addInvoicePayment($invoiceId, $transactionId, $amount, 0, Config::GATEWAY_NAME);
-                $paymentRecorded = true;
-                logTransaction(Config::GATEWAY_NAME, $commitResponse, 'Pago autorizado y registrado');
+                $paymentClaimed = TransactionStore::claimPaymentRecorded($tokenWs, $source);
+                if ($paymentClaimed) {
+                    addInvoicePayment($invoiceId, $transactionId, $amount, 0, Config::GATEWAY_NAME);
+                    $paymentRecorded = true;
+                    logTransaction(Config::GATEWAY_NAME, $commitResponse, 'Pago autorizado y registrado');
+                } else {
+                    $paymentRecorded = true;
+                    logTransaction(Config::GATEWAY_NAME, array_merge($commitResponse, [
+                        'duplicate_rejected' => true,
+                        'duplicate_reason' => 'payment_already_recorded',
+                    ]), 'Transacción duplicada rechazada');
+                }
             } else {
                 $paymentRecorded = true;
                 logTransaction(Config::GATEWAY_NAME, array_merge($commitResponse, [

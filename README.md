@@ -109,6 +109,40 @@ Operación diaria:
 - Revisar callbacks fallidos y reintentar de forma controlada.
 - Rotar secretos cuando corresponda y actualizar documentación operativa.
 
+### 5) Guía corta de rollback operativo (PROD)
+
+Usar este procedimiento cuando haya incidentes críticos (alta tasa de rechazo, pagos no aplicados o errores 5xx sostenidos) después de un cambio en producción.
+
+#### Pasos exactos
+
+1. **Declarar incidente y congelar cambios.**
+   - Crear/actualizar ticket de incidente y avisar a soporte/finanzas.
+   - Detener despliegues y cambios de configuración durante el rollback.
+2. **Respaldar evidencia antes del rollback.**
+   - Exportar `Gateway Log` del rango afectado.
+   - Guardar muestra de `token_ws`, `invoiceid` y errores observados.
+3. **Desactivar Clevers Webpay en WHMCS.**
+   - Ir a `Setup > Payments > Payment Gateways`.
+   - Cambiar el gateway de checkout al proveedor anterior (o desactivar temporalmente Webpay).
+4. **Revertir código/configuración al último estado estable.**
+   - Restaurar release/tag anterior del módulo en servidor.
+   - Si aplica, restaurar también configuración previa (`Ambiente`, secretos y callback).
+5. **Validar endpoint y cache operacional.**
+   - Confirmar que el checkout ya no enruta al flujo incidentado.
+   - Limpiar OPcache/cache de aplicación si el stack lo requiere.
+6. **Comunicar fin de rollback.**
+   - Registrar hora exacta de rollback y versión restaurada.
+   - Informar a soporte que se reanudó operación en modo estable.
+
+#### Verificación post rollback (obligatoria)
+
+- [ ] Checkout funcional con el gateway activo tras rollback.
+- [ ] Nueva transacción de prueba completada según flujo esperado.
+- [ ] No aparecen errores 5xx recientes en `Gateway Log` ni en logs de PHP/web server.
+- [ ] No hay incrementos anómalos de rechazos respecto de la línea base previa.
+- [ ] Conciliación rápida: pagos autorizados recientes están aplicándose en WHMCS.
+- [ ] Ticket del incidente actualizado con causa preliminar, impacto y próximos pasos.
+
 ## Callback server-to-server
 
 Endpoint WHMCS:

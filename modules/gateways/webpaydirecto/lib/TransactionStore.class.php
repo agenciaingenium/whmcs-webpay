@@ -165,6 +165,38 @@ class TransactionStore
         return $row ? (bool) $row->payment_recorded : false;
     }
 
+    public static function claimPaymentRecorded(string $token, string $source): bool
+    {
+        self::ensureTable();
+
+        $now = date('Y-m-d H:i:s');
+        $existing = Capsule::table(self::TABLE)->where('token_ws', $token)->first();
+        if ($existing) {
+            if (!empty($existing->payment_recorded)) {
+                return false;
+            }
+
+            Capsule::table(self::TABLE)->where('id', $existing->id)->update([
+                'payment_recorded' => true,
+                'source' => $source,
+                'updated_at' => $now,
+            ]);
+            return true;
+        }
+
+        Capsule::table(self::TABLE)->insert([
+            'token_ws' => $token,
+            'correlation_id' => self::buildCorrelationId($token),
+            'source' => $source,
+            'status' => 'RECEIVED',
+            'commit_attempts' => 0,
+            'payment_recorded' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        return true;
+    }
+
     private static function buildCorrelationId(string $seed): string
     {
         return 'wpd-' . substr(hash('sha256', $seed), 0, 20);

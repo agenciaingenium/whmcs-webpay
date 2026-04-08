@@ -83,4 +83,53 @@ final class HmacSignatureTest extends TestCase
             1710000601
         ));
     }
+
+
+    public function testVerifyTimedCallbackSignatureAllowsExactWindowBoundaryForFutureTimestamp(): void
+    {
+        $secret = 'my-secret-key';
+        $signature = hash_hmac('sha256', 'abc123|10|1710000300', $secret);
+
+        self::assertTrue(WebpayDirecto\PaymentProcessor::verifyTimedCallbackSignature(
+            $secret,
+            'abc123',
+            10,
+            '1710000300',
+            $signature,
+            300,
+            1710000000
+        ));
+    }
+
+    public function testVerifyTimedCallbackSignatureFailsBeyondFutureWindowBoundary(): void
+    {
+        $secret = 'my-secret-key';
+        $signature = hash_hmac('sha256', 'abc123|10|1710000301', $secret);
+
+        self::assertFalse(WebpayDirecto\PaymentProcessor::verifyTimedCallbackSignature(
+            $secret,
+            'abc123',
+            10,
+            '1710000301',
+            $signature,
+            300,
+            1710000000
+        ));
+    }
+
+    public function testVerifyTimedCallbackSignatureAllowsExactWindowBoundaryForPastTimestamp(): void
+    {
+        $secret = 'my-secret-key';
+        $signature = hash_hmac('sha256', 'abc123|10|1709999700', $secret);
+
+        self::assertTrue(WebpayDirecto\PaymentProcessor::verifyTimedCallbackSignature(
+            $secret,
+            'abc123',
+            10,
+            '1709999700',
+            $signature,
+            300,
+            1710000000
+        ));
+    }
 }

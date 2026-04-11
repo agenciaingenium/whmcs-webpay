@@ -1,5 +1,7 @@
 # Clevers Webpay for WHMCS
 
+![CI](https://github.com/agenciaingenium/whmcs-webpay/actions/workflows/ci.yml/badge.svg?branch=main)
+
 Gateway module para WHMCS que integra Webpay Directo (REST) con `apiKey` y `apiSecret`.
 
 ## Incluye
@@ -12,6 +14,13 @@ Gateway module para WHMCS que integra Webpay Directo (REST) con `apiKey` y `apiS
 - Normalización de montos CLP sin decimales (ej. `16535,24` -> `16535`)
 - Idempotencia persistente en tabla `mod_clevers_webpay_tx`
 
+## Soporte de versiones
+
+Baseline técnico recomendado para este módulo:
+
+- **PHP:** 7.4, 8.1, 8.2 y 8.3 (verificado en CI).
+- **WHMCS:** 8.x.
+- **Integración:** API REST de Webpay Directo de Transbank.
 ## CI (compatibilidad PHP mínima)
 
 El repositorio ejecuta pruebas automáticas en GitHub Actions con una matriz mínima de versiones de PHP alineada con compatibilidad objetivo de WHMCS:

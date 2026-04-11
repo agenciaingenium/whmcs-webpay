@@ -12,6 +12,13 @@ Gateway module para WHMCS que integra Webpay Directo (REST) con `apiKey` y `apiS
 - Normalización de montos CLP sin decimales (ej. `16535,24` -> `16535`)
 - Idempotencia persistente en tabla `mod_clevers_webpay_tx`
 
+## CI (compatibilidad PHP mínima)
+
+El repositorio ejecuta pruebas automáticas en GitHub Actions con una matriz mínima de versiones de PHP alineada con compatibilidad objetivo de WHMCS:
+
+- PHP `7.4`
+- PHP `8.1`
+
 ## Compatibilidad de templates
 
 - `six`

@@ -21,6 +21,12 @@ Baseline técnico recomendado para este módulo:
 - **PHP:** 7.4, 8.1, 8.2 y 8.3 (verificado en CI).
 - **WHMCS:** 8.x.
 - **Integración:** API REST de Webpay Directo de Transbank.
+## CI (compatibilidad PHP mínima)
+
+El repositorio ejecuta pruebas automáticas en GitHub Actions con una matriz mínima de versiones de PHP alineada con compatibilidad objetivo de WHMCS:
+
+- PHP `7.4`
+- PHP `8.1`
 
 ## Compatibilidad de templates
 

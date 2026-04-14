@@ -18,7 +18,7 @@ class PaymentProcessor
 
         $environment = $gatewayParams['environment'] ?? 'TEST';
         $baseUrl = Config::ENDPOINTS[$environment] ?? Config::ENDPOINTS['TEST'];
-        $api = new TransbankApi((string) $gatewayParams['apiKey'], (string) $gatewayParams['apiSecret'], $baseUrl);
+        $api = self::createApi($gatewayParams, $baseUrl);
 
         self::logTrace('commit_start', [
             'correlation_id' => $correlationId,
@@ -179,6 +179,16 @@ class PaymentProcessor
         return Capsule::table('tblaccounts')
             ->where('transid', $transactionId)
             ->exists();
+    }
+
+    private static function createApi(array $gatewayParams, string $baseUrl)
+    {
+        $factory = $GLOBALS['test_transbank_api_factory'] ?? null;
+        if (is_callable($factory)) {
+            return $factory($gatewayParams, $baseUrl);
+        }
+
+        return new TransbankApi((string) $gatewayParams['apiKey'], (string) $gatewayParams['apiSecret'], $baseUrl);
     }
 
     private static function logTrace(string $event, array $context): void

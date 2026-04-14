@@ -14,6 +14,7 @@ $GLOBALS['test_invoice_payments'] = [];
 $GLOBALS['test_commit_response'] = [];
 $GLOBALS['test_commit_exception'] = null;
 $GLOBALS['test_add_invoice_payment_hook'] = null;
+$GLOBALS['test_transbank_api_factory'] = null;
 
 function getGatewayVariables(string $gateway): array
 {
@@ -54,36 +55,6 @@ function logActivity(string $message): void
 }
 }
 
-namespace WebpayDirecto {
-class TransbankApi
-{
-    public function __construct(string $apiKey, string $apiSecret, string $baseUrl)
-    {
-    }
-
-    public function commitTransaction(string $token): array
-    {
-        if ($GLOBALS['test_commit_exception'] instanceof \Throwable) {
-            throw $GLOBALS['test_commit_exception'];
-        }
-
-        if (!empty($GLOBALS['test_commit_response'])) {
-            return $GLOBALS['test_commit_response'];
-        }
-
-        return [
-            'status' => Config::STATUS_AUTHORIZED,
-            'response_code' => 0,
-            'amount' => 1000,
-            'currency' => 'CLP',
-            'authorization_code' => 'AUTH123',
-            'session_id' => 'INV-20',
-            'buy_order' => 'INV20-ORDER',
-        ];
-    }
-}
-}
-
 namespace {
 
 use TestSupport\FakeCapsule;
@@ -99,6 +70,30 @@ final class CallbackFlowTest extends \PHPUnit\Framework\TestCase
         $GLOBALS['test_commit_response'] = [];
         $GLOBALS['test_commit_exception'] = null;
         $GLOBALS['test_add_invoice_payment_hook'] = null;
+        $GLOBALS['test_transbank_api_factory'] = static function (): object {
+            return new class {
+                public function commitTransaction(string $token): array
+                {
+                    if ($GLOBALS['test_commit_exception'] instanceof \Throwable) {
+                        throw $GLOBALS['test_commit_exception'];
+                    }
+
+                    if (!empty($GLOBALS['test_commit_response'])) {
+                        return $GLOBALS['test_commit_response'];
+                    }
+
+                    return [
+                        'status' => WebpayDirecto\Config::STATUS_AUTHORIZED,
+                        'response_code' => 0,
+                        'amount' => 1000,
+                        'currency' => 'CLP',
+                        'authorization_code' => 'AUTH123',
+                        'session_id' => 'INV-20',
+                        'buy_order' => 'INV20-ORDER',
+                    ];
+                }
+            };
+        };
     }
 
     public function testDoubleCallbackWithSameTokenIsIdempotent(): void

@@ -162,7 +162,7 @@ class TransactionStore
     {
         self::ensureTable();
         $row = Capsule::table(self::TABLE)->where('token_ws', $token)->first();
-        return $row ? (bool) $row->payment_recorded : false;
+        return $row ? !empty($row->payment_recorded) : false;
     }
 
     public static function claimPaymentRecorded(string $token, string $source): bool

@@ -36,6 +36,11 @@ namespace WebpayDirecto {
         return $GLOBALS['tbk_mock_error'];
     }
 
+    function curl_errno($ch): int
+    {
+        return $GLOBALS['tbk_mock_error'] !== '' ? 7 : 0;
+    }
+
     function curl_getinfo($ch, int $option): int
     {
         return $GLOBALS['tbk_mock_http_code'];

@@ -8,14 +8,16 @@ require_once __DIR__ . '/../webpaydirecto/lib/TransbankApi.class.php';
 require_once __DIR__ . '/../webpaydirecto/lib/TransactionStore.class.php';
 require_once __DIR__ . '/../webpaydirecto/lib/PaymentProcessor.class.php';
 
-include '../../../includes/functions.php';
-include '../../../includes/gatewayfunctions.php';
-include '../../../includes/invoicefunctions.php';
+$whmcsRoot = dirname(__DIR__, 3);
 
-if (file_exists('../../../dbconnect.php')) {
-    include '../../../dbconnect.php';
-} elseif (file_exists('../../../init.php')) {
-    include '../../../init.php';
+include $whmcsRoot . '/includes/functions.php';
+include $whmcsRoot . '/includes/gatewayfunctions.php';
+include $whmcsRoot . '/includes/invoicefunctions.php';
+
+if (file_exists($whmcsRoot . '/dbconnect.php')) {
+    include $whmcsRoot . '/dbconnect.php';
+} elseif (file_exists($whmcsRoot . '/init.php')) {
+    include $whmcsRoot . '/init.php';
 }
 
 header('Content-Type: application/json');

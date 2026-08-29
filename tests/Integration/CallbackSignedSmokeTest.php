@@ -11,8 +11,11 @@ final class CallbackSignedSmokeTest extends \PHPUnit\Framework\TestCase
     private array $serverPipes = [];
     private int $serverPort;
 
-    protected function setUp(): void
+    public function setUp(): void
     {
+        if (!function_exists('proc_open') || stripos(PHP_OS, 'WIN') === 0 && (getenv('SKIP_SMOKE_TESTS') === '1')) {
+            $this->markTestSkipped('Smoke test deshabilitado en este entorno.');
+        }
         $this->sandboxDir = sys_get_temp_dir() . '/webpay-callback-smoke-' . bin2hex(random_bytes(6));
         $this->buildSandbox();
         $this->startPhpServer();
@@ -88,10 +91,27 @@ final class CallbackSignedSmokeTest extends \PHPUnit\Framework\TestCase
 
 namespace WebpayDirecto;
 
-class TransbankApi
+class TransbankApi implements TransbankClientInterface
 {
     public function __construct(string $apiKey, string $apiSecret, string $baseUrl)
     {
+    }
+
+    public static function create(array $gatewayParams, string $baseUrl): TransbankClientInterface
+    {
+        return new self(
+            (string) ($gatewayParams['apiKey'] ?? ''),
+            (string) ($gatewayParams['apiSecret'] ?? ''),
+            $baseUrl
+        );
+    }
+
+    public function createTransaction(array $payload): array
+    {
+        return [
+            'token' => 'smoke-create-' . $payload['buy_order'],
+            'url' => 'https://webpay.test/redirect',
+        ];
     }
 
     public function commitTransaction(string $token): array
@@ -106,6 +126,21 @@ class TransbankApi
             'buy_order' => 'INV25-ORDER',
         ];
     }
+}
+INNERPHP
+        );
+
+        file_put_contents(
+            $libDir . '/TransbankClientInterface.php',
+            <<<'INNERPHP'
+<?php
+
+namespace WebpayDirecto;
+
+interface TransbankClientInterface
+{
+    public function createTransaction(array $payload): array;
+    public function commitTransaction(string $token): array;
 }
 INNERPHP
         );

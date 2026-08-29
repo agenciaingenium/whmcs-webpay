@@ -7,6 +7,7 @@ use WHMCS\Database\Capsule;
 class TransactionStore
 {
     public const TABLE = 'mod_clevers_webpay_tx';
+    public const RATE_LIMIT_TABLE = 'mod_clevers_webpay_rl';
 
     public static function getOrCreateCorrelationId(string $token): string
     {
@@ -42,6 +43,11 @@ class TransactionStore
 
     public static function ensureTable(): void
     {
+        self::install();
+    }
+
+    public static function install(): void
+    {
         if (!Capsule::schema()->hasTable(self::TABLE)) {
             Capsule::schema()->create(self::TABLE, function ($table) {
                 $table->increments('id');
@@ -67,6 +73,14 @@ class TransactionStore
                 $table->string('correlation_id', 64)->nullable()->index();
             });
         }
+
+        if (!Capsule::schema()->hasTable(self::RATE_LIMIT_TABLE)) {
+            Capsule::schema()->create(self::RATE_LIMIT_TABLE, function ($table) {
+                $table->increments('id');
+                $table->string('token_ws', 128)->index();
+                $table->dateTime('attempted_at')->index();
+            });
+        }
     }
 
     public static function recordCreate(int $invoiceId, string $buyOrder, string $token, float $amount, string $currency): void
@@ -83,6 +97,8 @@ class TransactionStore
             'amount' => $amount,
             'currency' => strtoupper($currency),
             'status' => 'CREATED',
+            'commit_attempts' => 0,
+            'payment_recorded' => false,
             'updated_at' => $now,
         ];
 
@@ -195,6 +211,36 @@ class TransactionStore
             'updated_at' => $now,
         ]);
         return true;
+    }
+
+    public static function recordCallbackAttempt(string $tokenWs): void
+    {
+        self::ensureTable();
+
+        Capsule::table(self::RATE_LIMIT_TABLE)->insert([
+            'token_ws' => $tokenWs,
+            'attempted_at' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    public static function countCallbackAttempts(string $tokenWs, int $windowSeconds): int
+    {
+        self::ensureTable();
+
+        $threshold = date('Y-m-d H:i:s', time() - max(1, $windowSeconds));
+        return (int) Capsule::table(self::RATE_LIMIT_TABLE)
+            ->where('token_ws', $tokenWs)
+            ->where('attempted_at', '>=', $threshold)
+            ->count();
+    }
+
+    public static function isCallbackRateLimited(string $tokenWs, int $maxAttempts, int $windowSeconds): bool
+    {
+        if ($maxAttempts <= 0) {
+            return false;
+        }
+
+        return self::countCallbackAttempts($tokenWs, $windowSeconds) >= $maxAttempts;
     }
 
     private static function buildCorrelationId(string $seed): string

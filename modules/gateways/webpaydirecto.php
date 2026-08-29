@@ -114,7 +114,7 @@ function webpaydirecto_MetaData()
 {
     return [
         'DisplayName' => 'Clevers Webpay',
-        'ApiVersion' => '1.0',
+        'ApiVersion' => '1.1',
         'DisableLocalCredCardInput' => true,
         'TokenisedStorage' => false,
     ];
@@ -153,6 +153,27 @@ function webpaydirecto_config()
             'Size' => 80,
             'Default' => '',
             'Description' => 'Clave HMAC para endpoint server-to-server. Recomendado: 32+ caracteres con alta entropía.',
+        ],
+        'callbackReplayWindow' => [
+            'FriendlyName' => 'Ventana de replay (segundos)',
+            'Type' => 'text',
+            'Size' => 10,
+            'Default' => '300',
+            'Description' => 'Ventana máxima, en segundos, para aceptar callbacks firmados con timestamp. 0 desactiva la verificación de timestamp.',
+        ],
+        'callbackRateLimitMax' => [
+            'FriendlyName' => 'Rate limit (intentos)',
+            'Type' => 'text',
+            'Size' => 10,
+            'Default' => '10',
+            'Description' => 'Máximo de callbacks permitidos por token_ws dentro de la ventana. 0 desactiva el rate limiting.',
+        ],
+        'callbackRateLimitWindow' => [
+            'FriendlyName' => 'Rate limit (ventana segundos)',
+            'Type' => 'text',
+            'Size' => 10,
+            'Default' => '60',
+            'Description' => 'Tamaño de la ventana móvil, en segundos, sobre la que se cuenta el rate limit por token_ws.',
         ],
         'securityNotice' => [
             'FriendlyName' => 'Estado de seguridad',

@@ -28,6 +28,12 @@ jobs:
         run: |
           find modules templates tests -name '*.php' -print0 | xargs -0 -n1 php -l
 
+      - name: Install Composer dependencies
+        run: |
+          if [ -f composer.json ]; then
+            composer install --no-interaction --no-progress --prefer-dist
+          fi
+
       - name: Install PHPUnit
         run: |
           wget -q -O phpunit.phar https://phar.phpunit.de/phpunit-9.phar
@@ -35,3 +41,31 @@ jobs:
 
       - name: Run test suite
         run: php phpunit.phar -c phpunit.xml.dist
+
+      - name: Install PHPStan
+        if: matrix.php-version == '8.1'
+        run: |
+          wget -q -O phpstan.phar https://github.com/phpstan/phpstan/releases/download/1.10.67/phpstan.phar
+          chmod +x phpstan.phar
+
+      - name: Run PHPStan static analysis
+        if: matrix.php-version == '8.1'
+        run: |
+          php phpstan.phar analyse modules/gateways/webpaydirecto/lib --level=3 --no-progress --error-format=raw || true
+
+  php-lint:
+    name: PHP syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.1"
+          tools: none
+
+      - name: Lint all PHP files
+        run: |
+          find modules templates tests -name '*.php' -print0 | xargs -0 -n1 php -l

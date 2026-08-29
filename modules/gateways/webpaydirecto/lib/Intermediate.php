@@ -63,7 +63,7 @@ try {
     $environment = $gatewayParams['environment'] ?? 'TEST';
     $baseUrl = Config::ENDPOINTS[$environment] ?? Config::ENDPOINTS['TEST'];
 
-    $api = new TransbankApi((string) $gatewayParams['apiKey'], (string) $gatewayParams['apiSecret'], $baseUrl);
+    $api = TransbankApi::create($gatewayParams, $baseUrl);
     $response = $api->createTransaction($payload);
 
     logModuleCall(Config::GATEWAY_NAME, 'createTransaction', $payload, $response, null, null);

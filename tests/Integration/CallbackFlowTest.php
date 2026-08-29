@@ -15,51 +15,15 @@ $GLOBALS['test_commit_response'] = [];
 $GLOBALS['test_commit_exception'] = null;
 $GLOBALS['test_add_invoice_payment_hook'] = null;
 $GLOBALS['test_transbank_api_factory'] = null;
-
-function getGatewayVariables(string $gateway): array
-{
-    return [
-        'type' => 'CC',
-        'environment' => 'TEST',
-        'apiKey' => 'test-key',
-        'apiSecret' => 'test-secret',
-    ];
-}
-
-function logModuleCall(string $module, string $action, array $request, array $response): void
-{
-}
-
-function checkCbInvoiceID(int $invoiceId, string $gateway): void
-{
-}
-
-function addInvoicePayment(int $invoiceId, string $transactionId, float $amount, float $fees, string $gateway): void
-{
-    if (is_callable($GLOBALS['test_add_invoice_payment_hook'])) {
-        $hook = $GLOBALS['test_add_invoice_payment_hook'];
-        $GLOBALS['test_add_invoice_payment_hook'] = null;
-        $hook();
-    }
-
-    $GLOBALS['test_invoice_payments'][] = compact('invoiceId', 'transactionId', 'amount', 'fees', 'gateway');
-    FakeCapsule::$tables['tblaccounts'][] = ['transid' => $transactionId];
-}
-
-function logTransaction(string $gateway, array $payload, string $message): void
-{
-}
-
-function logActivity(string $message): void
-{
-}
 }
 
 namespace {
 
 use TestSupport\FakeCapsule;
 
+require_once __DIR__ . '/../../modules/gateways/webpaydirecto/lib/TransbankApi.class.php';
 require_once __DIR__ . '/../../modules/gateways/webpaydirecto/lib/PaymentProcessor.class.php';
+require_once __DIR__ . '/../../modules/gateways/webpaydirecto/lib/TransbankClientInterface.php';
 
 final class CallbackFlowTest extends \PHPUnit\Framework\TestCase
 {
@@ -70,8 +34,17 @@ final class CallbackFlowTest extends \PHPUnit\Framework\TestCase
         $GLOBALS['test_commit_response'] = [];
         $GLOBALS['test_commit_exception'] = null;
         $GLOBALS['test_add_invoice_payment_hook'] = null;
-        $GLOBALS['test_transbank_api_factory'] = static function (): object {
-            return new class {
+
+        $GLOBALS['test_transbank_api_factory'] = static function (): WebpayDirecto\TransbankClientInterface {
+            return new class implements WebpayDirecto\TransbankClientInterface {
+                public function createTransaction(array $payload): array
+                {
+                    return [
+                        'token' => 'create-token-' . $payload['buy_order'],
+                        'url' => 'https://example.test/webpay',
+                    ];
+                }
+
                 public function commitTransaction(string $token): array
                 {
                     if ($GLOBALS['test_commit_exception'] instanceof \Throwable) {

@@ -27,6 +27,10 @@ El repositorio ejecuta pruebas automáticas en GitHub Actions con una matriz mí
 
 - PHP `7.4`
 - PHP `8.1`
+- PHP `8.2`
+- PHP `8.3`
+
+Adicionalmente, en `PHP 8.1` se ejecuta análisis estático con PHPStan nivel 3 sobre `modules/gateways/webpaydirecto/lib` para detectar regresiones de tipos y firmas.
 
 ## Compatibilidad de templates
 
@@ -170,12 +174,16 @@ Parámetros esperados:
 - `token_ws` (obligatorio)
 - `invoiceid` (opcional, recomendado para firma)
 - Header `X-Clevers-Signature` o parámetro `signature` (obligatorio)
+- Header `X-Clevers-Timestamp` o parámetro `timestamp` (opcional pero recomendado)
 
-Firma:
+### Firma con timestamp (recomendada, anti-replay)
 
-- Base: `token_ws|invoiceid` (si no hay `invoiceid`, usa solo `token_ws`)
+Si envías `X-Clevers-Timestamp`, el callback valida la firma con ventana de replay (por defecto **300 segundos / 5 min**). Esto evita el reenvío de requests firmados capturados.
+
+- Base: `token_ws|invoiceid|timestamp` (si no hay `invoiceid`, usa solo `token_ws|timestamp`)
 - Algoritmo: `HMAC-SHA256`
 - Clave: `Callback Secret` del gateway
+- Ventana: configurable vía parámetro de gateway `callbackReplayWindow` (segundos)
 
 Ejemplo:
 
@@ -183,13 +191,33 @@ Ejemplo:
 TOKEN_WS="abc123"
 INVOICE_ID="10"
 SECRET="tu-callback-secret"
-SIG=$(printf "%s" "${TOKEN_WS}|${INVOICE_ID}" | openssl dgst -sha256 -hmac "$SECRET" | awk '{print $2}')
+TS=$(date +%s)
+SIG=$(printf "%s" "${TOKEN_WS}|${INVOICE_ID}|${TS}" | openssl dgst -sha256 -hmac "$SECRET" | awk '{print $2}')
 
 curl -X POST "https://tu-whmcs/modules/gateways/callback/webpaydirecto.php" \
   -H "X-Clevers-Signature: ${SIG}" \
+  -H "X-Clevers-Timestamp: ${TS}" \
   -d "token_ws=${TOKEN_WS}" \
   -d "invoiceid=${INVOICE_ID}"
 ```
+
+### Firma simple (compatibilidad)
+
+Si NO envías `X-Clevers-Timestamp`, el callback valida con la firma clásica:
+
+- Base: `token_ws|invoiceid` (si no hay `invoiceid`, usa solo `token_ws`)
+- Algoritmo: `HMAC-SHA256`
+
+> Recomendación: migrar a firma con timestamp para mitigar replay attacks.
+
+### Rate limiting
+
+El callback aplica rate limiting por `token_ws` para mitigar abusos. Configurable vía parámetros de gateway:
+
+- `callbackRateLimitMax`: máximo de intentos por ventana (por defecto `10`).
+- `callbackRateLimitWindow`: ventana en segundos (por defecto `60`).
+
+Si se supera el umbral, el callback responde `HTTP 429` con mensaje `Demasiadas solicitudes, reintentar más tarde`.
 
 ## Archivos principales
 

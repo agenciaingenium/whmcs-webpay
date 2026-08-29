@@ -1,0 +1,12 @@
+parameters:
+    level: 3
+    paths:
+        - modules/gateways/webpaydirecto/lib
+    treatPhpDocTypesAsCertain: false
+    bootstrapFiles:
+        - phpstan-stubs.php
+    excludePaths:
+        analyse:
+            - modules/gateways/webpaydirecto/lib/AmountNormalizer.class.php
+            - modules/gateways/webpaydirecto/lib/Intermediate.php
+

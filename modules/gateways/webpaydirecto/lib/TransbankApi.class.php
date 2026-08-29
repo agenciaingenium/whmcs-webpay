@@ -2,7 +2,9 @@
 
 namespace WebpayDirecto;
 
-class TransbankApi
+require_once __DIR__ . '/TransbankClientInterface.php';
+
+class TransbankApi implements TransbankClientInterface
 {
     private string $apiKey;
     private string $apiSecret;
@@ -23,6 +25,24 @@ class TransbankApi
     public function commitTransaction(string $token): array
     {
         return $this->request('PUT', Config::API_PATH . '/' . rawurlencode($token));
+    }
+
+    public static function create(array $gatewayParams, string $baseUrl): TransbankClientInterface
+    {
+        $factory = $GLOBALS['test_transbank_api_factory'] ?? null;
+        if (is_callable($factory)) {
+            $instance = $factory($gatewayParams, $baseUrl);
+            if (!$instance instanceof TransbankClientInterface) {
+                throw new \RuntimeException('Factory must return a TransbankClientInterface instance.');
+            }
+            return $instance;
+        }
+
+        return new self(
+            (string) ($gatewayParams['apiKey'] ?? ''),
+            (string) ($gatewayParams['apiSecret'] ?? ''),
+            $baseUrl
+        );
     }
 
     private function request(string $method, string $path, ?array $payload = null): array

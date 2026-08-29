@@ -53,16 +53,63 @@ try {
         ?? ''
     ));
 
-    if (!PaymentProcessor::verifyCallbackSignature($callbackSecret, $tokenWs, $invoiceId ?: null, $providedSignature)) {
+    $providedTimestamp = trim((string) (
+        $_SERVER['HTTP_X_CLEVERS_TIMESTAMP']
+        ?? filter_input(INPUT_POST, 'timestamp', FILTER_UNSAFE_RAW)
+        ?? filter_input(INPUT_GET, 'timestamp', FILTER_UNSAFE_RAW)
+        ?? ''
+    ));
+
+    $replayWindowSeconds = (int) ($gatewayParams['callbackReplayWindow'] ?? 300);
+    if ($replayWindowSeconds <= 0) {
+        $replayWindowSeconds = 300;
+    }
+
+    $signatureValid = false;
+    if ($providedTimestamp !== '' && preg_match('/^\d+$/', $providedTimestamp)) {
+        $signatureValid = PaymentProcessor::verifyTimedCallbackSignature(
+            $callbackSecret,
+            $tokenWs,
+            $invoiceId ?: null,
+            $providedTimestamp,
+            $providedSignature,
+            $replayWindowSeconds
+        );
+    } else {
+        $signatureValid = PaymentProcessor::verifyCallbackSignature(
+            $callbackSecret,
+            $tokenWs,
+            $invoiceId ?: null,
+            $providedSignature
+        );
+    }
+
+    if (!$signatureValid) {
         logTransaction(Config::GATEWAY_NAME, [
             'token_ws' => $tokenWs,
             'invoice_id' => $invoiceId ?: null,
             'provided_signature' => $providedSignature,
+            'provided_timestamp' => $providedTimestamp,
         ], 'Callback signature validation failed');
         http_response_code(401);
         echo json_encode(['ok' => false, 'message' => 'Firma inválida']);
         exit;
     }
+
+    $rateLimitMax = (int) ($gatewayParams['callbackRateLimitMax'] ?? 10);
+    $rateLimitWindow = (int) ($gatewayParams['callbackRateLimitWindow'] ?? 60);
+    if ($rateLimitMax > 0 && TransactionStore::isCallbackRateLimited($tokenWs, $rateLimitMax, $rateLimitWindow)) {
+        logTransaction(Config::GATEWAY_NAME, [
+            'token_ws' => $tokenWs,
+            'invoice_id' => $invoiceId ?: null,
+            'max_attempts' => $rateLimitMax,
+            'window_seconds' => $rateLimitWindow,
+        ], 'Callback rate limit exceeded');
+        http_response_code(429);
+        echo json_encode(['ok' => false, 'message' => 'Demasiadas solicitudes, reintentar más tarde']);
+        exit;
+    }
+    TransactionStore::recordCallbackAttempt($tokenWs);
 
     $result = PaymentProcessor::processCommitToken($tokenWs, 'callback');
 

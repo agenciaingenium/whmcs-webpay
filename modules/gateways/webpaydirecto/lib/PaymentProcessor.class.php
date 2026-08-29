@@ -181,18 +181,41 @@ class PaymentProcessor
             ->exists();
     }
 
-    private static function createApi(array $gatewayParams, string $baseUrl)
+    private static function createApi(array $gatewayParams, string $baseUrl): TransbankClientInterface
     {
-        $factory = $GLOBALS['test_transbank_api_factory'] ?? null;
-        if (is_callable($factory)) {
-            return $factory($gatewayParams, $baseUrl);
-        }
-
-        return new TransbankApi((string) $gatewayParams['apiKey'], (string) $gatewayParams['apiSecret'], $baseUrl);
+        return TransbankApi::create($gatewayParams, $baseUrl);
     }
 
     private static function logTrace(string $event, array $context): void
     {
-        logActivity(Config::GATEWAY_NAME . ': ' . $event . ' ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        self::logStructured('info', $event, $context);
+    }
+
+    public static function logStructured(string $severity, string $event, array $context): void
+    {
+        $severity = strtolower($severity);
+        if (!in_array($severity, ['debug', 'info', 'warn', 'error'], true)) {
+            $severity = 'info';
+        }
+
+        $payload = [
+            'gateway' => Config::GATEWAY_NAME,
+            'severity' => $severity,
+            'event' => $event,
+            'context' => $context,
+            'ts' => date('c'),
+        ];
+
+        $line = Config::GATEWAY_NAME . ': [' . strtoupper($severity) . '] ' . $event . ' ' . json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        if (function_exists('logActivity')) {
+            logActivity($line);
+        }
+
+        if ($severity === 'error' || $severity === 'warn') {
+            if (function_exists('logTransaction')) {
+                logTransaction(Config::GATEWAY_NAME, $payload, '[' . strtoupper($severity) . '] ' . $event);
+            }
+        }
     }
 }

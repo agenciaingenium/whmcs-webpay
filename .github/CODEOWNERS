@@ -1,0 +1,9 @@
+# Default code owners for the whmcs-webpay gateway.
+# Requests touching the listed paths require review from at least one owner.
+
+*       @leonardo-araya
+
+/modules/gateways/webpaydirecto/lib/    @leonardo-araya
+/modules/gateways/callback/              @leonardo-araya
+/.github/workflows/                      @leonardo-araya
+/tests/                                  @leonardo-araya
